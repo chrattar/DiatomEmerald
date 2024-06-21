@@ -10,17 +10,16 @@ from entities_config import Slider
 def init_pygame():
     pygame.init()
     pygame.font.init()
-    screen = pygame.display.set_mode((1200, 800))
+    screen = pygame.display.set_mode((cfg.WIDTH, cfg.HEIGHT))
     pygame.display.set_caption("Particle Simulation")
     return screen
 
-# Utility function to draw text
+
 def draw_text(screen, text, position, font_name, size=20, color=(255, 255, 255)):
     font = pygame.font.SysFont(font_name, size)
     text_surface = font.render(text, True, color)
     screen.blit(text_surface, position)
 
-# Utility function to draw a button
 def draw_button(screen, text, rect, color, hover_color, action=None):
     mouse = pygame.mouse.get_pos()
     click = pygame.mouse.get_pressed()
@@ -94,7 +93,9 @@ def selection_screen(screen):
     settings = {
         'CELLS COUNT': cfg.CELLS_NUM,
         'PLANT COUNT': cfg.PLANTS_NUM,
-        'PREDATOR COUNT': cfg.PREDATORS_NUM
+        'PREDATOR COUNT': cfg.PREDATORS_NUM,
+        'MUTATION RATE': cfg.MUTATION_RATE
+
     }
     sliders = draw_selection_screen(screen, settings)
     running = True
@@ -133,9 +134,11 @@ def main_loop(screen):
     while True:
         event = handle_events()
         if event is None:
-            continue
+            pygame.display.flip()
+            clock.tick(120)
+        """
         if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-            is_paused = not is_paused
+            is_paused = not is_paused"""
 
         if not is_paused:
             screen.fill((0, 90, 90))
@@ -144,8 +147,8 @@ def main_loop(screen):
         else:
             draw_text(screen, "Paused", (600, 400), "Verdana", 30, (255, 0, 0))
 
-        pygame.display.flip()
-        clock.tick(30)
+        #pygame.display.flip()
+        #clock.tick(120)
 
 def update_entities(cells, plants, preds):
     current_time = pygame.time.get_ticks()
@@ -176,9 +179,21 @@ def draw_counts(screen, cells, plants, preds):
     active_cells_count = sum(1 for cell in cells if cell.energy > 0)
     active_plants_count = sum(1 for plant in plants if plant.active)
     active_preds_count = sum(1 for pred in preds if pred.energy > 0)
+    active_mutation_rate = cfg.MUTATION_RATE
     draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
     draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
     draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
+    draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
+    #draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
+    #draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
+    #draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
+    #draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
+    #draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
+    #draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
+    #draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
+    #draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
+
+
 
 if __name__ == "__main__":
     screen = init_pygame()

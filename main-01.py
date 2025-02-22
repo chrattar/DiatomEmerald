@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
 from assets_loader import AssetManager
-from entities import Cell, Predator, Plant
+from entities import Cell, Predator, Plant, Omnivore
 
 # Init Pygame
 pygame.init()
@@ -51,6 +51,7 @@ def main():
     cells = [Cell() for _ in range(cfg.CELLS_NUM)]
     plants = [Plant() for _ in range(cfg.PLANTS_NUM)]
     preds = [Predator() for _ in range(cfg.PREDATORS_NUM)]
+    omnivores = [Omnivore() for _ in range(cfg.OMNIVORE_NUM)]  # Use omnivores consistently
     is_paused = False
     last_record_time = pygame.time.get_ticks()
 
@@ -71,12 +72,18 @@ def main():
 
             # Update and draw predators
             for pred in preds[:]:
-                pred.update(cells, current_time)
+                mutation = pred.update(cells, current_time)
+                if mutation:
+                    preds.remove(pred)
+                    omnivores.append(mutation)
                 pred.draw()
 
             # Update and draw cells
-            for cell in cells:
-                cell.update(cells)
+            for cell in cells[:]:
+                mutation = cell.update(cells)
+                if mutation:
+                    cells.remove(cell)
+                    omnivores.append(mutation)
                 cell.draw()
                 for plant in plants:
                     if cell.consume_plant(plant, current_time):
@@ -87,21 +94,29 @@ def main():
             for plant in plants:
                 plant.update(plants)
                 plant.draw()
+            
+            # Update and draw omnivores
+            for omnivore in omnivores[:]:
+                omnivore.update(cells, plants, omnivores, current_time)
+                omnivore.draw()
 
             # Clean up inactive entities
             cells = [cell for cell in cells if cell.active and cell.energy > 0]
             plants = [plant for plant in plants if plant.active]
             preds = [pred for pred in preds if pred.energy > 0]
+            omnivores = [omni for omni in omnivores if omni.energy > 0]
 
             # Count active entities
             active_cells_count = len(cells)
             active_plants_count = len(plants)
             active_preds_count = len(preds)
+            active_omnivores_count = len(omnivores)
 
             # Display counts
             draw_text(screen, f"Cells: {active_cells_count}", (10, 10), font, color=(0, 255, 255))
             draw_text(screen, f"Plants: {active_plants_count}", (10, 40), font, color=(0, 255, 0))
             draw_text(screen, f"Preds: {active_preds_count}", (10, 70), font, color=(255, 0, 0))
+            draw_text(screen, f"Omnis: {active_omnivores_count}", (10, 100), font, color=(255, 0, 145))  # Fixed y position
 
             # Record population history
             if current_time - last_record_time >= RECORD_INTERVAL:
@@ -110,6 +125,7 @@ def main():
                 population_history['cells'].append(active_cells_count)
                 population_history['plants'].append(active_plants_count)
                 population_history['predators'].append(active_preds_count)
+                population_history['omnivores'].append(active_omnivores_count)
                 last_record_time = current_time
 
         else:

@@ -21,7 +21,7 @@ class AssetManager:
             'sprite1': load_image('sprite1.png'),
             'sprite2': load_image('sprite2.png'),
             'sprite3': load_image('sprite3.png'),
-            #'sprite4': load_image('sprite4.png'), 
+            'sprite4': load_image('sprite4.png'), 
 
             # Add more images as needed
         }

@@ -20,13 +20,13 @@ energy_cell_max = cfg.CELL_ENERGY_MAX
 energy_plant = cfg.PLANTS_ENERGY
 energy_plant_max = cfg.PLANTS_ENERGY_MAX
 energy_pred = cfg. PREDATOR_ENERGY_INITAL
-#sprite_image = pygame.image.load('sprite.png').convert_alpha() For local load
+#Sprties
 img_cell = assets.get_image('sprite1')
 img_omni = assets.get_image('sprite4')
 img_plant = assets.get_image('sprite2')
 img_pred = assets.get_image('sprite3')
 
-# Particle class definitions
+#CLASSES
 class Cell:
     def __init__(self, 
                  energy=energy_start,
@@ -45,11 +45,9 @@ class Cell:
     def divide(self, cells_list):
         if self.energy < cfg.DIVISION_THRESHOLD:
             self.divide(cells_list)
-        self.energy = cfg.ENERGY_INITIAL  # Parent keeps half its energy
-        new_cell = Cell(self.energy)  # Create a new cell with the same energy level
-
-        # Slightly offset the new cell from the parent
-        offset = random.randint(-2, 2)  # Adjust the offset value as needed
+        self.energy = cfg.ENERGY_INITIAL
+        new_cell = Cell(self.energy)
+        offset = random.randint(-2, 2) 
         new_cell.rect.x = max(0, min(self.rect.x + offset, width - new_cell.rect.width))
         new_cell.rect.y = max(0, min(self.rect.y + offset, height - new_cell.rect.height))
         cells_list.append(new_cell)                                      
@@ -72,7 +70,7 @@ class Cell:
 
     def consume_plant(self, plant, current_time):
         if self.rect.colliderect(plant.rect) and plant.active:
-            print(f"Plant consumed by cell at {self.rect.topleft}")
+            #print(f"Plant consumed by cell at {self.rect.topleft}")
             self.energy += plant.energy
             plant.active = False
             plant.regeneration_time = current_time + regeneration_delay
@@ -90,10 +88,11 @@ class Cell:
             self.draw_energy_bar()
     
     def update(self, cells_list):
+        current_time = time.time()
         if self.energy <= 0:
             return 
         self.move()
-        self.energy -= cfg.CELL_ENERGY_DECAY  # Energy decay over time
+        self.energy -= cfg.CELL_ENERGY_DECAY
 
         while self.energy >= cfg.DIVISION_THRESHOLD:
             self.divide(cells_list)
@@ -103,11 +102,10 @@ class Cell:
             return new_omnivore
         return None
         
-    def move(self):  # Ensure this method is correctly indented to be part of the Particle class
+    def move(self):  
         # Simple movement logic: move the particle randomly
         self.rect.x += random.randint(-10, 10)
         self.rect.y += random.randint(-10, 10)
-        # Keep the particle within the screen bounds
         self.rect.x = max(0, min(self.rect.x, width - self.rect.width))
         self.rect.y = max(0, min(self.rect.y, height - self.rect.height))
         pass
@@ -157,14 +155,11 @@ class Plant:
     def update(self, plants_list):
         if not self.active:
             return
-
         current_time = time.time()
-        
-        # Handle energy decay
         decay_amount = self.energy_decay_rate * random.uniform(0, 1)
         self.energy = max(0, self.energy - decay_amount)
         
-        # Check if plant should die
+        #PLANT IS DEAD y/n
         if self.energy <= 0:
             self.active = False
             return
@@ -175,18 +170,12 @@ class Plant:
                 self.divide(plants_list)
                 self.last_division_time = current_time
 
-
-
     def divide(self, plants_list):
-        # Parent keeps half energy, new plant gets other half
         split_energy = self.energy * 0.5
         self.energy = split_energy
-        
         new_plant = Plant(energy=split_energy)
-        # Ensure new plant appears near parent
         new_plant.rect.x = max(0, min(self.rect.x + random.randint(-20, 20), width - new_plant.rect.width))
         new_plant.rect.y = max(0, min(self.rect.y + random.randint(-20, 20), height - new_plant.rect.height))
-        
         plants_list.append(new_plant)
     
 class Predator:
@@ -200,13 +189,14 @@ class Predator:
         self.active = True
         self.rect.x = random.randint(0, width - self.rect.width)
         self.rect.y = random.randint(0, height - self.rect.height)
+        self.last_division_time = 0
 
     def consume_cell(self, cell, current_time):
         if self.rect.colliderect(cell.rect) and cell.active:
             # Possibly add more logic here, e.g., energy transfer
             self.energy += cell.energy
-            self.active = False
-            #plant.regeneration_time = current_time + regeneration_delay
+            print(f"Pred -- Energy after: {self.energy}")
+            cell.active = False
             return True
         return False
 
@@ -226,23 +216,28 @@ class Predator:
         filled_rect = pygame.Rect(self.rect.x, self.rect.y-10, filled_length, bar_height)
         pygame.draw.rect(screen, (140,0,0),filled_rect)
    
-    def move(self):  # Ensure this method is correctly indented to be part of the Particle class
-        # Simple movement logic: move the particle randomly
+    def move(self):  
         self.rect.x += random.randint(-10, 10)
         self.rect.y += random.randint(-10, 10)
-        # Keep the particle within the screen bounds
-        self.rect.x = max(0, min(self.rect.x, width - self.rect.width))
-        self.rect.y = max(0, min(self.rect.y, height - self.rect.height))
+        self.rect.x = max(0, min(self.rect.x, width - self.rect.width))        # Keep inside scren
+        self.rect.y = max(0, min(self.rect.y, height - self.rect.height))        # Keep inside scren
         pass
     
-    def divide(self, preds_list):
-        if self.energy > cfg.DIVISION_THRESHOLD:
-            self.divide(preds_list)
-            new_pred = Predator(self.energy * 0.75)
-            offset = random.randint(-2, 2)
-            new_pred.rect.x = max(0, min(self.rect.x + offset, width - new_pred.rect.width))
-            new_pred.rect.y = max(0, min(self.rect.y + offset, height - new_pred.rect.height))
-            preds_list.append(new_pred)
+    def divide(self, preds_list, current_time):
+        division_cooldown = 3000
+        print(f"Energy: {self.energy}, Lower: {cfg.PREDATOR_DIVISION_THRESHOLD_LOWER}, Upper: {cfg.PREDATOR_DIVISION_THRESHOLD_UPPER}")
+        print(f"Time diff: {current_time - self.last_division_time}, Cooldown: {division_cooldown}")
+        if (self.energy <= cfg.PREDATOR_DIVISION_THRESHOLD_UPPER and 
+                self.energy >= cfg.PREDATOR_DIVISION_THRESHOLD_LOWER and
+                current_time - self.last_division_time > division_cooldown):
+                self.energy *= 0.25  # Parent keeps 25%
+                new_pred = Predator(self.energy * 3)  # Child gets 75%
+                print(f"DIVISION TRIGGERED! Energy: {self.energy}")
+                offset = random.randint(-2, 2)
+                new_pred.rect.x = max(0, min(self.rect.x + offset, cfg.WIDTH - new_pred.rect.width))
+                new_pred.rect.y = max(0, min(self.rect.y + offset, cfg.HEIGHT - new_pred.rect.height))         
+                preds_list.append(new_pred)
+                self.last_division_time = current_time
 
     def add_energy(self, amount):
         #Increase but dont exceed max energy
@@ -255,11 +250,11 @@ class Predator:
             screen.blit(self.image, self.rect)
             self.draw_energy_bar()                 
 
-    def update(self, cells, current_time):
+    def update(self, cells, current_time, preds_list):
         self.move()  # Predator moves in each update call
         self.energy -= cfg.PREDATOR_ENERGY_DECAY
+        self.divide(preds_list,current_time)
 
-        # Iterate through cells to check for collisions
         for cell in cells:
             if self.consume_cell(cell, current_time):
                 # Handle the predator's energy increase or other effects here
@@ -272,6 +267,7 @@ class Predator:
             new_omnivore = Omnivore(energy=self.energy, parent_type='predator')
             return new_omnivore
         return None
+    
 class Omnivore:
     def __init__(self, energy=energy_pred, energy_efficiency=1.0, parent_type = None):
         self.image = img_omni  # You'll need to add a specific omnivore image
@@ -295,8 +291,7 @@ class Omnivore:
         bar_length = 20
         bar_height = 5
         energy_ratio = self.energy / self.max_energy
-        filled_length = int(energy_ratio * bar_length)
-        
+        filled_length = int(energy_ratio * bar_length)  
         background_rect = pygame.Rect(self.rect.x, self.rect.y - 10, bar_length, bar_height)
         pygame.draw.rect(screen, (0,0,0), background_rect)
         
@@ -345,6 +340,7 @@ class Omnivore:
         # Check for division
         if self.energy > cfg.DIVISION_THRESHOLD:
             self.divide(omnis_list)
+
 ### MUTATED CLASSES
                 # Energy
                 # Speed

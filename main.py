@@ -1,202 +1,144 @@
-import sys
 import pygame
-
+import random
+import numpy as np
+import sys
 import config as cfg
+import matplotlib.pyplot as plt
+import time
+from collections import defaultdict
 from assets_loader import AssetManager
-from entities import Cell, Predator, Plant
-from entities_config import Slider
+from entities import Cell, Predator, Plant, Omnivore
 
-# Initialize Pygame and the screen
-def init_pygame():
-    pygame.init()
-    pygame.font.init()
-    screen = pygame.display.set_mode((cfg.WIDTH, cfg.HEIGHT))
-    pygame.display.set_caption("Particle Simulation")
-    return screen
+# Init Pygame
+pygame.init()
+pygame.font.init()
 
+# Global variables
+width, height = cfg.WIDTH, cfg.HEIGHT
+regeneration_delay = cfg.REGENERATION_DELAY
+population_history = defaultdict(list)
+time_points = []
+RECORD_INTERVAL = 5000  # Millisecs
+last_record_time = pygame.time.get_ticks()
+#DISPLAY
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption("Particle Simulation")
+font_size = 20
+font = pygame.font.SysFont("Helvetica", font_size)
 
-def draw_text(screen, text, position, font_name, size=20, color=(255, 255, 255)):
-    font = pygame.font.SysFont(font_name, size)
+def draw_text(screen, text, position, font, color=(255,255,255)):
     text_surface = font.render(text, True, color)
     screen.blit(text_surface, position)
 
-def draw_button(screen, text, rect, color, hover_color, action=None):
-    mouse = pygame.mouse.get_pos()
-    click = pygame.mouse.get_pressed()
-    button = pygame.Rect(rect)
+def plot_population_history():
+    plt.figure(figsize=(10, 6))
+    plt.plot(time_points, population_history['cells'], label='Cells', color='cyan')
+    plt.plot(time_points, population_history['plants'], label='Plants', color='green')
+    plt.plot(time_points, population_history['predators'], label='Predators', color='red')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Population')
+    plt.title('Population Changes Over Time')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('population_history.png')
+    plt.close()
 
-    if button.collidepoint(mouse):
-        pygame.draw.rect(screen, hover_color, button)
-        if click[0] == 1 and action:
-            pygame.time.wait(200)  # Prevent multiple clicks
-            action()
-    else:
-        pygame.draw.rect(screen, color, button)
-
-    text_surf = pygame.font.SysFont("Verdana", 20).render(text, True, (0, 0, 0))
-    text_rect = text_surf.get_rect(center=button.center)
-    screen.blit(text_surf, text_rect)
-
-def draw_selection_screen(screen, settings):
-    screen.fill((50, 50, 50))  # Dark grey background
-    font = pygame.font.SysFont('Consolas', 24)
-    offset = 50
-    sliders = []
-
-    for key, value in settings.items():
-        # Draw text for each setting
-        label = font.render(f'{key}: {value}', True, (255, 255, 255))
-        screen.blit(label, (50, offset))
-
-        # Create Sliders for Numeric Values
-        slider = Slider(300, 
-                        offset, 
-                        600, 
-                        20, 
-                        initial_value=value, 
-                        min_value=0, 
-                        max_value=1000, 
-                        label=key)
-        sliders.append(slider)
-        slider.draw(screen)
-        offset += 70
-
-    return sliders
-
-def handle_events():
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit()
-        return event
-
-def start_screen(screen):
-    running = True
-    while running:
-        event = handle_events()
-        if event is None:
-            continue
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-            running = False
-            selection_screen(screen)
-
-        screen.fill((0, 0, 0))
-        draw_text(screen, "Press SPACE to start or ESC to exit", (50, 50), "Verdana", 30)
-        pygame.display.flip()
-        pygame.time.Clock().tick(30)
-
-def selection_screen(screen):
-    settings = {
-        'CELLS COUNT': cfg.CELLS_NUM,
-        'PLANT COUNT': cfg.PLANTS_NUM,
-        'PREDATOR COUNT': cfg.PREDATORS_NUM,
-        'MUTATION RATE': cfg.MUTATION_RATE
-
-    }
-    sliders = draw_selection_screen(screen, settings)
-    running = True
-
-    while running:
-        screen.fill((50, 50, 50))  # Dark grey background
-        for slider in sliders:
-            slider.draw(screen)
-
-        event = handle_events()
-        if event is None:
-            continue
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
-            for slider in sliders:
-                settings[slider.label] = int(slider.get_value())
-            update_config(settings)
-            running = False
-
-        for slider in sliders:
-            slider.handle_event(event)
-
-        pygame.display.flip()
-
-def update_config(settings):
-    cfg.CELLS_NUM = settings['CELLS COUNT']
-    cfg.PLANTS_NUM = settings['PLANT COUNT']
-    cfg.PREDATORS_NUM = settings['PREDATOR COUNT']
-
-def main_loop(screen):
+def main():
     clock = pygame.time.Clock()
     cells = [Cell() for _ in range(cfg.CELLS_NUM)]
     plants = [Plant() for _ in range(cfg.PLANTS_NUM)]
     preds = [Predator() for _ in range(cfg.PREDATORS_NUM)]
+    omnivores = [Omnivore() for _ in range(cfg.OMNIVORE_NUM)]  
     is_paused = False
+    last_record_time = pygame.time.get_ticks()
 
     while True:
-        event = handle_events()
-        if event is None:
-            pygame.display.flip()
-            clock.tick(120)
-        """
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-            is_paused = not is_paused"""
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                plot_population_history()
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    is_paused = not is_paused
 
         if not is_paused:
             screen.fill((0, 90, 90))
-            update_entities(cells, plants, preds)
-            draw_entities(screen, cells, plants, preds)
+
+            # PRED UPDATE DRAW
+            for pred in preds[:]:
+                mutation = pred.update(cells, current_time, preds)
+                if mutation:
+                    preds.remove(pred)
+                    omnivores.append(mutation)
+                pred.draw()
+
+            #CELL UPDATE DRAW
+            for cell in cells[:]:
+                mutation = cell.update(cells)
+                if mutation:
+                    cells.remove(cell)
+                    omnivores.append(mutation)
+                cell.draw()
+                for plant in plants:
+                    if cell.consume_plant(plant, current_time):
+                        plant.active = False
+                        plant.regeneration_time = current_time + regeneration_delay
+
+            # PLAT - UPDATE DRAWR
+            for plant in plants:
+                plant.update(plants)
+                plant.draw()
+            
+           #OMNIVORE UPDATE DRAW
+            for omnivore in omnivores[:]:
+                omnivore.update(cells, plants, omnivores, current_time)
+                omnivore.draw()
+
+            # REMOVE DEAD
+            cells = [cell for cell in cells if cell.active and cell.energy > 0]
+            plants = [plant for plant in plants if plant.active]
+            preds = [pred for pred in preds if pred.energy > 0]
+            omnivores = [omni for omni in omnivores if omni.energy > 0]
+
+            # IS ERVYTHING DEAD
+            if len(cells) == 0 and len(preds) == 0 and len(plants) == 0 and len(omnivores) == 0:
+                plot_population_history()
+                print("Simulation ended: No more cells, predators, or omnivores.")
+                pygame.quit()   
+                sys.exit()
+
+            # WHATS ALIVE
+            active_cells_count = len(cells)
+            active_plants_count = len(plants)
+            active_preds_count = len(preds)
+            active_omnivores_count = len(omnivores)
+
+            # SCREEN COUNTER
+            draw_text(screen, f"Cells: {active_cells_count}", (10, 10), font, color=(0, 255, 255))
+            draw_text(screen, f"Plants: {active_plants_count}", (10, 40), font, color=(0, 255, 0))
+            draw_text(screen, f"Preds: {active_preds_count}", (10, 70), font, color=(255, 0, 0))
+            draw_text(screen, f"Omnis: {active_omnivores_count}", (10, 100), font, color=(255, 0, 145))  # Fixed y position
+
+            # LOG POP HIST
+            if current_time - last_record_time >= RECORD_INTERVAL:
+                time_seconds = current_time / 1000
+                time_points.append(time_seconds)
+                population_history['cells'].append(active_cells_count)
+                population_history['plants'].append(active_plants_count)
+                population_history['predators'].append(active_preds_count)
+                population_history['omnivores'].append(active_omnivores_count)
+                last_record_time = current_time
+
         else:
-            draw_text(screen, "Paused", (600, 400), "Verdana", 30, (255, 0, 0))
+            pause_text = font.render("Paused", True, (255, 0, 0))
+            screen.blit(pause_text, (width // 2 - pause_text.get_width() // 2, 
+                                    height // 2 - pause_text.get_height() // 2))
 
-        #pygame.display.flip()
-        #clock.tick(120)
-
-def update_entities(cells, plants, preds):
-    current_time = pygame.time.get_ticks()
-    for pred in preds:
-        pred.update(cells, current_time)
-    for cell in cells:
-        cell.update(cells)
-        for plant in plants:
-            if cell.consume_plant(plant, current_time):
-                plant.active = False
-                plant.regeneration_time = current_time + cfg.REGENERATION_DELAY
-    for plant in plants:
-        plant.update(plants)
-        if not plant.active and current_time >= plant.regeneration_time:
-            plant.reset_position()
-            plant.active = True
-
-def draw_entities(screen, cells, plants, preds):
-    for pred in preds:
-        pred.draw()
-    for cell in cells:
-        cell.draw()
-    for plant in plants:
-        plant.draw()
-    draw_counts(screen, cells, plants, preds)
-
-def draw_counts(screen, cells, plants, preds):
-    active_cells_count = sum(1 for cell in cells if cell.energy > 0)
-    active_plants_count = sum(1 for plant in plants if plant.active)
-    active_preds_count = sum(1 for pred in preds if pred.energy > 0)
-    active_mutation_rate = cfg.MUTATION_RATE
-    draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
-    draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
-    draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
-    draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
-    #draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
-    #draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
-    #draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
-    #draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
-    #draw_text(screen, f"Cells: {active_cells_count}", (10, 10), "Verdana", color=(0, 255, 255))
-    #draw_text(screen, f"Plants: {active_plants_count}", (10, 40), "Verdana", color=(0, 255, 0))
-    #draw_text(screen, f"Preds: {active_preds_count}", (10, 70), "Verdana", color=(255, 0, 0))
-    #draw_text(screen, f"Mutation Rate: {cfg.MUTATION_RATE}", (10, 70), "Verdana", color=(255, 0, 0))
-
-
+        pygame.display.flip()
+        clock.tick(120)
 
 if __name__ == "__main__":
-    screen = init_pygame()
-    start_screen(screen)
-    selection_screen(screen)
-    main_loop(screen)
+    main()
